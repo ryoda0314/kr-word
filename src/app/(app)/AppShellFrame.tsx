@@ -56,12 +56,18 @@ export function AppShellFrame({
 
   return (
     <AppShell
-      header={{ height: 56 }}
+      header={{
+        // Extra top padding for the iOS status bar / notch in PWA standalone.
+        // env(safe-area-inset-top) is 0 on non-iOS / non-standalone.
+        height: 'calc(56px + env(safe-area-inset-top, 0px))' as unknown as number,
+      }}
       navbar={{ width: 240, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding="md"
     >
-      <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
+      <AppShell.Header
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
+        <Group h={56} px="md" justify="space-between">
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <Title order={4}>ko-word-book</Title>
@@ -97,7 +103,11 @@ export function AppShellFrame({
         ))}
       </AppShell.Navbar>
 
-      <AppShell.Main>{children}</AppShell.Main>
+      <AppShell.Main
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        {children}
+      </AppShell.Main>
     </AppShell>
   );
 }

@@ -49,6 +49,16 @@ export const metadata: Metadata = {
     template: '%s · ko-word-book',
   },
   description: 'TOPIK と日常会話のための韓国語単語帳',
+  appleWebApp: {
+    capable: true,
+    title: 'ko-word-book',
+    statusBarStyle: 'default',
+  },
+  formatDetection: {
+    telephone: false,
+    email: false,
+    address: false,
+  },
 };
 
 export const viewport: Viewport = {
@@ -58,6 +68,8 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

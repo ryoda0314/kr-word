@@ -12,6 +12,18 @@ body {
   min-height: 100svh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent iOS rubber-band overscroll bleed in PWA standalone. */
+  overscroll-behavior-y: none;
+  /* Prevent iOS text-size auto adjustment when rotating to landscape. */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* When added to home screen on iOS, match background to theme so the
+   status-bar area (exposed by viewport-fit=cover) doesn't show white. */
+@media (display-mode: standalone) {
+  html {
+    background: light-dark(#fafaf7, #0f1115);
+  }
 }
 
 *,

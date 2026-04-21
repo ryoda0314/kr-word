@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Badge,
   Container,
   Flex,
@@ -8,7 +9,8 @@ import {
   Text,
   Title,
 } from '@mantine/core';
-import { PlusCircle } from 'lucide-react';
+import { ChevronRight, PlusCircle } from 'lucide-react';
+import Link from 'next/link';
 
 import { ButtonLink } from '@/app/_components/ButtonLink';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -65,20 +67,26 @@ export default async function WordsPage() {
                   <Table.Th>TOPIK</Table.Th>
                   <Table.Th>日常会話度</Table.Th>
                   <Table.Th>ステージ</Table.Th>
+                  <Table.Th aria-label="詳細" />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {words.map((w) => (
                   <Table.Tr key={w.id}>
                     <Table.Td>
-                      <Stack gap={2}>
-                        <Text fw={600}>{w.lemma}</Text>
-                        {w.hanja ? (
-                          <Text size="xs" c="dimmed" ff="monospace">
-                            {w.hanja}
-                          </Text>
-                        ) : null}
-                      </Stack>
+                      <Link
+                        href={`/words/${w.id}`}
+                        style={{ color: 'inherit', textDecoration: 'none' }}
+                      >
+                        <Stack gap={2}>
+                          <Text fw={600}>{w.lemma}</Text>
+                          {w.hanja ? (
+                            <Text size="xs" c="dimmed" ff="monospace">
+                              {w.hanja}
+                            </Text>
+                          ) : null}
+                        </Stack>
+                      </Link>
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm">{w.meaning_ja}</Text>
@@ -126,6 +134,17 @@ export default async function WordsPage() {
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm">{STAGE_LABELS_JA[w.stage]}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <ActionIcon
+                        component={Link}
+                        href={`/words/${w.id}`}
+                        variant="subtle"
+                        color="gray"
+                        aria-label="詳細"
+                      >
+                        <ChevronRight size={16} />
+                      </ActionIcon>
                     </Table.Td>
                   </Table.Tr>
                 ))}

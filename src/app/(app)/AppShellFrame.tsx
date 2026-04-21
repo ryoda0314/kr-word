@@ -11,7 +11,7 @@ import {
   Title,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { BookOpen, Brain, LayoutDashboard, LogOut, PlusCircle } from 'lucide-react';
+import { BookOpen, Brain, LayoutDashboard, LogOut, PlusCircle, ScrollText } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -38,6 +38,7 @@ export function AppShellFrame({
   const items: Array<{ href: string; label: string; icon: ReactNode }> = [
     { href: '/dashboard', label: 'ダッシュボード', icon: <LayoutDashboard size={16} /> },
     { href: '/review', label: 'レビュー', icon: <Brain size={16} /> },
+    { href: '/read', label: '読む', icon: <ScrollText size={16} /> },
     { href: '/words', label: '単語帳', icon: <BookOpen size={16} /> },
     { href: '/words/new', label: '単語を追加', icon: <PlusCircle size={16} /> },
   ];

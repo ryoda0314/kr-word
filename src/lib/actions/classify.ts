@@ -33,9 +33,11 @@ The learner is a Japanese native; they already read Hangul fluently.
 You receive one Korean word (or multi-word expression) and return its full classification as JSON.
 
 Rules:
-- lemma: dictionary form in Hangul (verbs/adjectives → -다 form, e.g. 갔어요 → 가다).
+- lemma: return the selected term VERBATIM — same spelling, same inflection, same particles, same sentence-ending. Do NOT lemmatize, do NOT strip particles, do NOT rewrite endings to -다. The learner's chosen form (tense, politeness level, modality, pattern ending like -죠/-네요/-잖아요, auxiliaries like -고 싶다/-어야 되다) is itself part of what they want to study. Only whitespace trimming is allowed.
+  Examples: 갔어요 → 갔어요 (not 가다), 학교에서 → 학교에서 (not 학교), 하는 거죠 → 하는 거죠 (not 하다, not 하는 거다), 먹고 싶어 → 먹고 싶어, 해야 돼요 → 해야 돼요.
+  The meaning_ja / notes fields are where you explain the nuance contributed by the conjugation and any particles — not the lemma.
 - hanja: the underlying 漢字 if word_type is sino_korean or mixed (e.g. 학교 → 學校). null otherwise.
-- part_of_speech: one of noun | verb | adjective | adverb | phrase | other.
+- part_of_speech: one of noun | verb | adjective | adverb | phrase | other. Use `phrase` for anything that contains endings / particles / auxiliaries beyond a bare citation-form word.
 - word_type: sino_korean (漢字語) | native_korean (固有語) | loanword (외래어) | mixed (혼종어).
 - meaning_ja: concise Japanese meaning (≤ 40 chars).
 - phonetic: the actual spoken form in Hangul brackets when Korean pronunciation rules change it from the spelling

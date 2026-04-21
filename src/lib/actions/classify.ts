@@ -37,7 +37,7 @@ Rules:
   Examples: 갔어요 → 갔어요 (not 가다), 학교에서 → 학교에서 (not 학교), 하는 거죠 → 하는 거죠 (not 하다, not 하는 거다), 먹고 싶어 → 먹고 싶어, 해야 돼요 → 해야 돼요.
   The meaning_ja / notes fields are where you explain the nuance contributed by the conjugation and any particles — not the lemma.
 - hanja: the underlying 漢字 if word_type is sino_korean or mixed (e.g. 학교 → 學校). null otherwise.
-- part_of_speech: one of noun | verb | adjective | adverb | phrase | other. Use `phrase` for anything that contains endings / particles / auxiliaries beyond a bare citation-form word.
+- part_of_speech: one of noun | verb | adjective | adverb | phrase | other. Use "phrase" for anything that contains endings / particles / auxiliaries beyond a bare citation-form word.
 - word_type: sino_korean (漢字語) | native_korean (固有語) | loanword (외래어) | mixed (혼종어).
 - meaning_ja: concise Japanese meaning (≤ 40 chars).
 - phonetic: the actual spoken form in Hangul brackets when Korean pronunciation rules change it from the spelling

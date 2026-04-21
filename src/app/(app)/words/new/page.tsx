@@ -1,4 +1,13 @@
-import { Container, Stack, Tabs, Text, Title } from '@mantine/core';
+import {
+  Container,
+  Stack,
+  Tabs,
+  TabsList,
+  TabsPanel,
+  TabsTab,
+  Text,
+  Title,
+} from '@mantine/core';
 import { FileText, PenLine } from 'lucide-react';
 
 import { ManualEntryForm } from './ManualEntryForm';
@@ -16,21 +25,21 @@ export default function NewWordPage() {
         </Stack>
 
         <Tabs defaultValue="manual" variant="outline">
-          <Tabs.List>
-            <Tabs.Tab value="manual" leftSection={<PenLine size={14} />}>
+          <TabsList>
+            <TabsTab value="manual" leftSection={<PenLine size={14} />}>
               手入力
-            </Tabs.Tab>
-            <Tabs.Tab value="paste" leftSection={<FileText size={14} />}>
+            </TabsTab>
+            <TabsTab value="paste" leftSection={<FileText size={14} />}>
               文章から抽出
-            </Tabs.Tab>
-          </Tabs.List>
+            </TabsTab>
+          </TabsList>
 
-          <Tabs.Panel value="manual" pt="md">
+          <TabsPanel value="manual" pt="md">
             <ManualEntryForm />
-          </Tabs.Panel>
-          <Tabs.Panel value="paste" pt="md">
+          </TabsPanel>
+          <TabsPanel value="paste" pt="md">
             <PasteExtractForm />
-          </Tabs.Panel>
+          </TabsPanel>
         </Tabs>
       </Stack>
     </Container>

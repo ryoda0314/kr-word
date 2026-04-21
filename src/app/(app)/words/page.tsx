@@ -5,6 +5,12 @@ import {
   Group,
   Stack,
   Table,
+  TableScrollContainer,
+  TableTbody,
+  TableTd,
+  TableTh,
+  TableThead,
+  TableTr,
   Text,
   Title,
 } from '@mantine/core';
@@ -17,30 +23,6 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { STAGE_LABELS_JA, WORD_TYPE_LABELS_JA } from '@/types/db';
 
 export default async function WordsPage() {
-  console.log('[words/page] import check', {
-    Badge: typeof Badge,
-    Container: typeof Container,
-    Flex: typeof Flex,
-    Group: typeof Group,
-    Stack: typeof Stack,
-    Table: typeof Table,
-    'Table.ScrollContainer': typeof Table?.ScrollContainer,
-    'Table.Thead': typeof Table?.Thead,
-    'Table.Tbody': typeof Table?.Tbody,
-    'Table.Tr': typeof Table?.Tr,
-    'Table.Th': typeof Table?.Th,
-    'Table.Td': typeof Table?.Td,
-    Text: typeof Text,
-    Title: typeof Title,
-    ChevronRight: typeof ChevronRight,
-    PlusCircle: typeof PlusCircle,
-    Link: typeof Link,
-    ActionIconLink: typeof ActionIconLink,
-    ButtonLink: typeof ButtonLink,
-    STAGE_LABELS_JA: typeof STAGE_LABELS_JA,
-    WORD_TYPE_LABELS_JA: typeof WORD_TYPE_LABELS_JA,
-  });
-
   const supabase = await createSupabaseServerClient();
   const { data: words, error } = await supabase
     .from('user_words')
@@ -81,23 +63,23 @@ export default async function WordsPage() {
             まだ単語がありません。右上の「単語を追加」から始めましょう。
           </Text>
         ) : (
-          <Table.ScrollContainer minWidth={720}>
+          <TableScrollContainer minWidth={720}>
             <Table striped highlightOnHover verticalSpacing="sm">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>語</Table.Th>
-                  <Table.Th>意味</Table.Th>
-                  <Table.Th>分類</Table.Th>
-                  <Table.Th>TOPIK</Table.Th>
-                  <Table.Th>日常会話度</Table.Th>
-                  <Table.Th>ステージ</Table.Th>
-                  <Table.Th aria-label="詳細" />
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
+              <TableThead>
+                <TableTr>
+                  <TableTh>語</TableTh>
+                  <TableTh>意味</TableTh>
+                  <TableTh>分類</TableTh>
+                  <TableTh>TOPIK</TableTh>
+                  <TableTh>日常会話度</TableTh>
+                  <TableTh>ステージ</TableTh>
+                  <TableTh aria-label="詳細" />
+                </TableTr>
+              </TableThead>
+              <TableTbody>
                 {words.map((w) => (
-                  <Table.Tr key={w.id}>
-                    <Table.Td>
+                  <TableTr key={w.id}>
+                    <TableTd>
                       <Link
                         href={`/words/${w.id}`}
                         style={{ color: 'inherit', textDecoration: 'none' }}
@@ -118,16 +100,16 @@ export default async function WordsPage() {
                           </Group>
                         </Stack>
                       </Link>
-                    </Table.Td>
-                    <Table.Td>
+                    </TableTd>
+                    <TableTd>
                       <Text size="sm">{w.meaning_ja}</Text>
-                    </Table.Td>
-                    <Table.Td>
+                    </TableTd>
+                    <TableTd>
                       <Badge variant="light" color="grape">
                         {WORD_TYPE_LABELS_JA[w.word_type]}
                       </Badge>
-                    </Table.Td>
-                    <Table.Td>
+                    </TableTd>
+                    <TableTd>
                       {w.topik_level ? (
                         <Badge variant="default">TOPIK {w.topik_level}</Badge>
                       ) : (
@@ -135,8 +117,8 @@ export default async function WordsPage() {
                           —
                         </Text>
                       )}
-                    </Table.Td>
-                    <Table.Td>
+                    </TableTd>
+                    <TableTd>
                       <Group gap={4}>
                         <div
                           style={{
@@ -162,11 +144,11 @@ export default async function WordsPage() {
                           {w.daily_usage_score}
                         </Text>
                       </Group>
-                    </Table.Td>
-                    <Table.Td>
+                    </TableTd>
+                    <TableTd>
                       <Text size="sm">{STAGE_LABELS_JA[w.stage]}</Text>
-                    </Table.Td>
-                    <Table.Td>
+                    </TableTd>
+                    <TableTd>
                       <ActionIconLink
                         href={`/words/${w.id}`}
                         variant="subtle"
@@ -175,12 +157,12 @@ export default async function WordsPage() {
                       >
                         <ChevronRight size={16} />
                       </ActionIconLink>
-                    </Table.Td>
-                  </Table.Tr>
+                    </TableTd>
+                  </TableTr>
                 ))}
-              </Table.Tbody>
+              </TableTbody>
             </Table>
-          </Table.ScrollContainer>
+          </TableScrollContainer>
         )}
       </Stack>
     </Container>

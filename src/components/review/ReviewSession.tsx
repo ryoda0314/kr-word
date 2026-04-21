@@ -20,7 +20,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState, useTransition } from 'react';
+import { useCallback, useRef, useState, useTransition } from 'react';
 
 import { SpeechButton } from '@/components/common/SpeechButton';
 import { submitReview } from '@/lib/actions/review';
@@ -78,10 +78,15 @@ export function ReviewSession({
   const [, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const [cardKey, setCardKey] = useState(0);
+  // Synchronous guard so a double-tap can't pass the busy check twice before
+  // React has flushed the busy=true state update. Without this, a single
+  // rapid double-click skips the next card because setIndex(i+1) runs twice.
+  const submittingRef = useRef(false);
 
   const handleAnswer = useCallback(
     (card: ReviewCard) => (quality: number) => {
-      if (busy) return;
+      if (submittingRef.current) return;
+      submittingRef.current = true;
       setBusy(true);
       startTransition(async () => {
         const result = await submitReview({ userWordId: card.id, quality });
@@ -99,10 +104,11 @@ export function ReviewSession({
           setIndex((i) => i + 1);
           setCardKey((k) => k + 1);
         }
+        submittingRef.current = false;
         setBusy(false);
       });
     },
-    [busy],
+    [],
   );
 
   if (cards.length === 0) {

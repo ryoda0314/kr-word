@@ -1,0 +1,36 @@
+.paper {
+  font-size: 17px;
+  line-height: 2;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: none;
+}
+
+/* Hide the browser's native selection highlight inside the reader; the
+   dotted outline overlay takes its place. */
+.paper ::selection,
+.paper ::-moz-selection {
+  background: transparent;
+  color: inherit;
+}
+
+/* Dashed outline overlay that groups a selected range (one rect per line). */
+.phraseOutline {
+  position: absolute;
+  border: 2px dashed
+    light-dark(var(--mantine-color-grape-6), var(--mantine-color-grape-4));
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 300;
+  transition: opacity 120ms ease;
+}
+
+/* Floating "register" button pinned above the selection. */
+.phraseFab {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 10px));
+  z-index: 400;
+  pointer-events: auto;
+}

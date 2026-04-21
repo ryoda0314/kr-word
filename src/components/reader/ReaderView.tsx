@@ -9,6 +9,7 @@ import {
   Group,
   Modal,
   Paper,
+  Portal,
   Stack,
   Text,
 } from '@mantine/core';
@@ -28,6 +29,8 @@ import { saveWord } from '@/lib/actions/save-word';
 import type { ClassifiedWord } from '@/lib/ai/schemas';
 import { WORD_TYPE_LABELS_JA } from '@/types/db';
 
+import styles from './ReaderView.module.css';
+
 type PendingClassify =
   | { state: 'idle' }
   | { state: 'loading'; selectedText: string }
@@ -38,6 +41,14 @@ type PendingClassify =
       word: ClassifiedWord;
     }
   | { state: 'error'; selectedText: string; code: string };
+
+type PhraseSel = {
+  text: string;
+  buttonTop: number;
+  buttonLeft: number;
+  groupRects: Array<{ top: number; left: number; width: number; height: number }>;
+  context: string;
+};
 
 const CONTEXT_WINDOW = 120;
 
@@ -52,69 +63,134 @@ function extractContext(
 }
 
 /**
- * Renders Korean text as a drag-selectable paragraph. Selection triggers a
- * floating "register" button; clicking it opens a modal with AI classify
- * preview and save-to-vocab action. Tokenization is intentionally skipped
- * — Korean is agglutinative and whitespace boundaries don't match
- * dictionary forms, so we let the learner pick the range directly.
+ * Renders Korean text as a drag-selectable paragraph. Matches en-word-book's
+ * reader UX: while dragging, a dashed outline wraps each line of the selection
+ * and a floating button appears above it. Clicking the button opens a modal
+ * with an AI classify preview and save-to-vocab action.
+ *
+ * Korean is agglutinative, so we don't tokenize — the learner picks the
+ * character range directly and the AI normalizes it to the dictionary form.
  */
 export function ReaderView({ text }: { text: string }) {
   const [savedLemmas, setSavedLemmas] = useState<string[]>([]);
   const [pending, setPending] = useState<PendingClassify>({ state: 'idle' });
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [currentSelection, setCurrentSelection] = useState<string>('');
+  const [phraseSel, setPhraseSel] = useState<PhraseSel | null>(null);
   const [modalOpen, { open: openModal, close: closeModal }] =
     useDisclosure(false);
-  const readerRef = useRef<HTMLDivElement>(null);
+  const paperRef = useRef<HTMLDivElement>(null);
 
   const refreshSelection = useCallback(() => {
     const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) {
-      setCurrentSelection('');
+    const paper = paperRef.current;
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !paper) {
+      setPhraseSel(null);
       return;
     }
-    if (!readerRef.current) return;
-    const anchor = sel.anchorNode;
-    if (!anchor || !readerRef.current.contains(anchor)) {
-      setCurrentSelection('');
+    const range = sel.getRangeAt(0);
+    if (!paper.contains(range.commonAncestorContainer)) {
+      setPhraseSel(null);
       return;
     }
-    const s = sel.toString().trim();
-    setCurrentSelection(s);
-  }, []);
+    const raw = sel.toString();
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      setPhraseSel(null);
+      return;
+    }
+
+    // Group per-span client rects by line (merge rects on the same baseline).
+    const rawRects = Array.from(range.getClientRects()).filter(
+      (r) => r.width > 0 && r.height > 0,
+    );
+    if (rawRects.length === 0) {
+      setPhraseSel(null);
+      return;
+    }
+
+    const LINE_EPSILON = 3;
+    const sortedRects = rawRects
+      .slice()
+      .sort((a, b) => a.top - b.top || a.left - b.left);
+    const lineGroups: DOMRect[][] = [];
+    for (const r of sortedRects) {
+      const last = lineGroups[lineGroups.length - 1];
+      if (
+        last &&
+        Math.abs(last[0].top - r.top) <= LINE_EPSILON &&
+        Math.abs(last[0].bottom - r.bottom) <= LINE_EPSILON
+      ) {
+        last.push(r);
+      } else {
+        lineGroups.push([r]);
+      }
+    }
+
+    const scrollY = window.scrollY;
+    const scrollX = window.scrollX;
+    const groupRects = lineGroups.map((line) => {
+      const top = Math.min(...line.map((r) => r.top));
+      const bottom = Math.max(...line.map((r) => r.bottom));
+      const left = Math.min(...line.map((r) => r.left));
+      const right = Math.max(...line.map((r) => r.right));
+      return {
+        top: top + scrollY,
+        left: left + scrollX,
+        width: right - left,
+        height: bottom - top,
+      };
+    });
+
+    const firstRect = sortedRects[0];
+    const buttonTop = firstRect.top + scrollY;
+    const buttonLeft = (firstRect.left + firstRect.right) / 2 + scrollX;
+
+    const idx = text.indexOf(trimmed);
+    const context =
+      idx >= 0
+        ? extractContext(text, idx, idx + trimmed.length)
+        : text.slice(0, 300);
+
+    setPhraseSel({
+      text: trimmed,
+      buttonTop,
+      buttonLeft,
+      groupRects,
+      context,
+    });
+  }, [text]);
 
   useEffect(() => {
     const handler = () => refreshSelection();
     document.addEventListener('selectionchange', handler);
-    return () => document.removeEventListener('selectionchange', handler);
+    window.addEventListener('resize', handler);
+    window.addEventListener('scroll', handler, true);
+    return () => {
+      document.removeEventListener('selectionchange', handler);
+      window.removeEventListener('resize', handler);
+      window.removeEventListener('scroll', handler, true);
+    };
   }, [refreshSelection]);
 
   async function handleClassifySelection() {
-    if (!currentSelection) return;
-    const idx = text.indexOf(currentSelection);
-    const context =
-      idx >= 0
-        ? extractContext(text, idx, idx + currentSelection.length)
-        : text.slice(0, 300);
+    if (!phraseSel) return;
+    const selectedText = phraseSel.text;
+    const context = phraseSel.context;
+
+    window.getSelection()?.removeAllRanges();
+    setPhraseSel(null);
 
     openModal();
-    setPending({ state: 'loading', selectedText: currentSelection });
-    const res = await classifyWord({
-      term: currentSelection,
-      context,
-    });
+    setPending({ state: 'loading', selectedText });
+    const res = await classifyWord({ term: selectedText, context });
     if (!res.ok) {
-      setPending({
-        state: 'error',
-        selectedText: currentSelection,
-        code: res.error,
-      });
+      setPending({ state: 'error', selectedText, code: res.error });
       return;
     }
     setPending({
       state: 'ready',
-      selectedText: currentSelection,
+      selectedText,
       contextSentence: context,
       word: res.word,
     });
@@ -148,8 +224,6 @@ export function ReaderView({ text }: { text: string }) {
     }
     closeModal();
     setPending({ state: 'idle' });
-    window.getSelection()?.removeAllRanges();
-    setCurrentSelection('');
   }
 
   function handleModalClose() {
@@ -160,20 +234,15 @@ export function ReaderView({ text }: { text: string }) {
   return (
     <Stack gap="sm">
       <Text size="xs" c="dimmed">
-        本文を<strong>ドラッグで選択</strong>し、右下のボタンで単語帳に追加できます。助詞・語尾ごと選んでも AI が lemma に戻します。
+        本文を<strong>ドラッグで選択</strong>すると、選択範囲の上にボタンが出ます。助詞・語尾ごと選んでも AI が lemma に戻します。
       </Text>
 
       <Paper
-        ref={readerRef}
+        ref={paperRef}
         withBorder
         radius="md"
         p={{ base: 'md', md: 'xl' }}
-        style={{
-          fontSize: 17,
-          lineHeight: 2,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'keep-all',
-        }}
+        className={styles.paper}
       >
         {text}
       </Paper>
@@ -212,29 +281,41 @@ export function ReaderView({ text }: { text: string }) {
         </Alert>
       ) : null}
 
-      {/* Floating selection action */}
-      <div
-        style={{
-          position: 'fixed',
-          right: 20,
-          bottom: 20,
-          zIndex: 50,
-          pointerEvents: currentSelection ? 'auto' : 'none',
-          opacity: currentSelection ? 1 : 0,
-          transform: currentSelection ? 'translateY(0)' : 'translateY(8px)',
-          transition: 'opacity 150ms ease, transform 150ms ease',
-        }}
-      >
-        <Button
-          color="grape"
-          size="md"
-          leftSection={<Sparkles size={14} />}
-          onClick={handleClassifySelection}
-          style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.15)' }}
-        >
-          「{truncate(currentSelection, 10)}」を登録
-        </Button>
-      </div>
+      {/* Dotted outlines + anchored FAB (en-parity UX) */}
+      {phraseSel ? (
+        <Portal>
+          {phraseSel.groupRects.map((r, i) => (
+            <div
+              key={i}
+              className={styles.phraseOutline}
+              style={{
+                top: r.top - 2,
+                left: r.left - 2,
+                width: r.width + 4,
+                height: r.height + 4,
+              }}
+              aria-hidden
+            />
+          ))}
+          <div
+            className={styles.phraseFab}
+            style={{ top: phraseSel.buttonTop, left: phraseSel.buttonLeft }}
+          >
+            <Button
+              color="grape"
+              size="xs"
+              leftSection={<Sparkles size={12} />}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleClassifySelection();
+              }}
+              style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.15)' }}
+            >
+              「{truncate(phraseSel.text, 10)}」を登録
+            </Button>
+          </div>
+        </Portal>
+      ) : null}
 
       <Modal
         opened={modalOpen}

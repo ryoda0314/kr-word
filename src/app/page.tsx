@@ -1,6 +1,14 @@
-import { Container, Stack, Text, Title } from '@mantine/core';
+import { Button, Container, Group, Stack, Text, Title } from '@mantine/core';
+import Link from 'next/link';
 
-export default function HomePage() {
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+
+export default async function HomePage() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <Container size="sm" py={96}>
       <Stack gap="md">
@@ -13,6 +21,22 @@ export default function HomePage() {
         <Text c="dimmed" size="md" lh={1.8}>
           単語を登録すると AI が漢字語・固有語・外来語に分類し、TOPIK 風と日常会話の例文を添える。SRS で復習し、使える語彙として育てる。
         </Text>
+        <Group gap="sm" mt="md">
+          {user ? (
+            <Button component={Link} href="/words" size="md">
+              単語帳をひらく
+            </Button>
+          ) : (
+            <>
+              <Button component={Link} href="/login" size="md">
+                サインイン
+              </Button>
+              <Button component={Link} href="/login" size="md" variant="subtle">
+                新規登録
+              </Button>
+            </>
+          )}
+        </Group>
       </Stack>
     </Container>
   );

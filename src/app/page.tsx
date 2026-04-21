@@ -1,6 +1,6 @@
-import { Button, Container, Group, Stack, Text, Title } from '@mantine/core';
-import Link from 'next/link';
+import { Container, Group, Stack, Text, Title } from '@mantine/core';
 
+import { ButtonLink } from '@/app/_components/ButtonLink';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export default async function HomePage() {
@@ -23,17 +23,17 @@ export default async function HomePage() {
         </Text>
         <Group gap="sm" mt="md">
           {user ? (
-            <Button component={Link} href="/words" size="md">
+            <ButtonLink href="/words" size="md">
               単語帳をひらく
-            </Button>
+            </ButtonLink>
           ) : (
             <>
-              <Button component={Link} href="/login" size="md">
+              <ButtonLink href="/login" size="md">
                 サインイン
-              </Button>
-              <Button component={Link} href="/login" size="md" variant="subtle">
+              </ButtonLink>
+              <ButtonLink href="/login" size="md" variant="subtle">
                 新規登録
-              </Button>
+              </ButtonLink>
             </>
           )}
         </Group>

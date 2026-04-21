@@ -1,7 +1,5 @@
-import Link from 'next/link';
 import {
   Badge,
-  Button,
   Container,
   Flex,
   Group,
@@ -12,6 +10,7 @@ import {
 } from '@mantine/core';
 import { PlusCircle } from 'lucide-react';
 
+import { ButtonLink } from '@/app/_components/ButtonLink';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { STAGE_LABELS_JA, WORD_TYPE_LABELS_JA } from '@/types/db';
 
@@ -43,13 +42,12 @@ export default async function WordsPage() {
               {words?.length ?? 0} 語を登録中
             </Text>
           </Stack>
-          <Button
-            component={Link}
+          <ButtonLink
             href="/words/new"
             leftSection={<PlusCircle size={16} />}
           >
             単語を追加
-          </Button>
+          </ButtonLink>
         </Flex>
 
         {!words || words.length === 0 ? (

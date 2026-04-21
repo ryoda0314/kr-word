@@ -1,6 +1,6 @@
-import { Alert, Button, Container, Stack, Text } from '@mantine/core';
-import Link from 'next/link';
+import { Alert, Container, Stack, Text } from '@mantine/core';
 
+import { ButtonLink } from '@/app/_components/ButtonLink';
 import {
   ReviewSession,
   type ReviewCard,
@@ -77,9 +77,9 @@ export default async function DrillSessionPage({
           <Alert color="gray" variant="light">
             条件に合う単語がありません。絞り込みを緩めるか、単語を追加してください。
           </Alert>
-          <Button component={Link} href="/drill" variant="light">
+          <ButtonLink href="/drill" variant="light">
             条件を変える
-          </Button>
+          </ButtonLink>
         </Stack>
       </Container>
     );

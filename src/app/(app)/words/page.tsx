@@ -1,5 +1,4 @@
 import {
-  ActionIcon,
   Badge,
   Container,
   Flex,
@@ -12,6 +11,7 @@ import {
 import { ChevronRight, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 
+import { ActionIconLink } from '@/app/_components/ActionIconLink';
 import { ButtonLink } from '@/app/_components/ButtonLink';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { STAGE_LABELS_JA, WORD_TYPE_LABELS_JA } from '@/types/db';
@@ -143,15 +143,14 @@ export default async function WordsPage() {
                       <Text size="sm">{STAGE_LABELS_JA[w.stage]}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <ActionIcon
-                        component={Link}
+                      <ActionIconLink
                         href={`/words/${w.id}`}
                         variant="subtle"
                         color="gray"
                         aria-label="詳細"
                       >
                         <ChevronRight size={16} />
-                      </ActionIcon>
+                      </ActionIconLink>
                     </Table.Td>
                   </Table.Tr>
                 ))}

@@ -32,21 +32,35 @@ import { WORD_TYPE_LABELS_JA } from '@/types/db';
 
 import styles from './ReaderView.module.css';
 
-type Part =
-  | { kind: 'space'; text: string }
-  | { kind: 'token'; id: number; text: string };
+/**
+ * A rendered piece of the body:
+ *   - `char`: a single non-whitespace character at position `ci` in the
+ *     original text. It's a pointer-interactive span; its index is what we
+ *     track during a drag.
+ *   - `space`: one or more whitespace characters. Rendered plain — no span,
+ *     no tracking, but visually bridged with `.bridge` when a selection
+ *     wraps around it.
+ */
+type Piece =
+  | { kind: 'char'; ci: number; ch: string }
+  | { kind: 'space'; ci: number; text: string };
 
-/** Split the body into whitespace + non-whitespace (어절) runs. */
-function tokenize(body: string): Part[] {
-  const parts: Part[] = [];
-  let id = 0;
-  const re = /(\s+)|(\S+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(body)) !== null) {
-    if (m[1]) parts.push({ kind: 'space', text: m[1] });
-    else if (m[2]) parts.push({ kind: 'token', id: id++, text: m[2] });
+function tokenize(body: string): Piece[] {
+  const out: Piece[] = [];
+  let i = 0;
+  while (i < body.length) {
+    const c = body[i];
+    if (/\s/.test(c)) {
+      let j = i;
+      while (j < body.length && /\s/.test(body[j])) j++;
+      out.push({ kind: 'space', ci: i, text: body.slice(i, j) });
+      i = j;
+    } else {
+      out.push({ kind: 'char', ci: i, ch: c });
+      i++;
+    }
   }
-  return parts;
+  return out;
 }
 
 type PendingClassify =
@@ -61,7 +75,9 @@ type PendingClassify =
   | { state: 'error'; selectedText: string; code: string };
 
 type PhraseSel = {
-  tokenIds: Set<number>;
+  /** Inclusive character index range into the body. */
+  lo: number;
+  hi: number;
   buttonTop: number;
   buttonLeft: number;
 };
@@ -78,32 +94,36 @@ function extractContext(
   return fullText.slice(lo, hi).trim();
 }
 
-function tokenIdAt(x: number, y: number): number | null {
+/** Return the character index under (x, y), or null if not over a char span. */
+function charIndexAt(x: number, y: number): number | null {
   const el = document.elementFromPoint(x, y) as HTMLElement | null;
   if (!el) return null;
-  const span = el.closest<HTMLElement>('[data-token-id]');
+  const span = el.closest<HTMLElement>('[data-ci]');
   if (!span) return null;
-  const n = Number(span.dataset.tokenId);
+  const n = Number(span.dataset.ci);
   return Number.isFinite(n) ? n : null;
 }
 
 /**
- * Korean passage reader. The body is whitespace-tokenized into 어절 and each
- * chunk is rendered as a pointer-interactive span. Native text selection is
- * disabled (via user-select: none) so iOS's copy/translate callout never
- * appears; drag-to-extend uses pointer events instead.
+ * Korean passage reader with **per-character** drag selection.
  *
- *   - Tap → classify that one 어절 immediately
- *   - Drag across multiple 어절 → highlight + floating "register" FAB
- *   - Scroll gesture cancels the drag via pointercancel
+ * Each non-whitespace character is its own span so the user can pick exactly
+ * the characters they want — e.g. just 학교 out of 학교에서 — without being
+ * constrained to whitespace-separated 어절 boundaries. Native text selection
+ * is disabled so iOS's copy/translate callout never appears.
+ *
+ *   - Tap a single character → currently no-op (need at least 2 chars to
+ *     classify since a single Hangul block is usually not a meaningful word
+ *     on its own). To register a single Hangul character, drag over it to
+ *     itself, which still counts as a 1-char selection.
+ *   - Drag across 2+ characters → highlight + floating "register" FAB above
+ *     the first selected char. Clicking it runs classifyWord and saves.
+ *   - Whitespace inside a range is visually bridged and included in the
+ *     selected text when submitted (so multi-어절 phrases keep their space).
+ *   - Scroll gestures cancel via pointercancel.
  */
 export function ReaderView({ text }: { text: string }) {
-  const parts = useMemo(() => tokenize(text), [text]);
-  const tokenTexts = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const p of parts) if (p.kind === 'token') m.set(p.id, p.text);
-    return m;
-  }, [parts]);
+  const pieces = useMemo(() => tokenize(text), [text]);
 
   const [savedLemmas, setSavedLemmas] = useState<string[]>([]);
   const [pending, setPending] = useState<PendingClassify>({ state: 'idle' });
@@ -114,36 +134,44 @@ export function ReaderView({ text }: { text: string }) {
     useDisclosure(false);
 
   const paperRef = useRef<HTMLDivElement>(null);
-  const dragStartIdRef = useRef<number | null>(null);
-  const dragEndIdRef = useRef<number | null>(null);
+  const dragStartRef = useRef<number | null>(null);
+  const dragEndRef = useRef<number | null>(null);
   const dragActiveRef = useRef(false);
 
-  function computeFabAnchor(firstId: number): { top: number; left: number } | null {
+  function computeFabAnchor(ci: number): { top: number; left: number } | null {
     const paper = paperRef.current;
     if (!paper) return null;
-    const firstSpan = paper.querySelector<HTMLElement>(
-      `[data-token-id="${firstId}"]`,
-    );
-    if (!firstSpan) return null;
-    const rect = firstSpan.getBoundingClientRect();
+    const span = paper.querySelector<HTMLElement>(`[data-ci="${ci}"]`);
+    if (!span) return null;
+    const rect = span.getBoundingClientRect();
     return {
       top: rect.top + window.scrollY,
       left: (rect.left + rect.right) / 2 + window.scrollX,
     };
   }
 
-  function setSelectionRange(startId: number, endId: number) {
-    const lo = Math.min(startId, endId);
-    const hi = Math.max(startId, endId);
-    const ids = new Set<number>();
-    for (let i = lo; i <= hi; i++) ids.add(i);
-    const anchor = computeFabAnchor(lo);
+  function setRange(startCi: number, endCi: number) {
+    const lo = Math.min(startCi, endCi);
+    const hi = Math.max(startCi, endCi);
+    // Trim leading/trailing whitespace out of the range (doesn't affect text
+    // slicing since we index back into `text`, but makes the FAB anchor and
+    // the char-highlight set consistent with what the user "sees" as selected).
+    let trimLo = lo;
+    while (trimLo <= hi && /\s/.test(text[trimLo] ?? '')) trimLo++;
+    let trimHi = hi;
+    while (trimHi >= trimLo && /\s/.test(text[trimHi] ?? '')) trimHi--;
+    if (trimLo > trimHi) {
+      setPhraseSel(null);
+      return;
+    }
+    const anchor = computeFabAnchor(trimLo);
     if (!anchor) {
       setPhraseSel(null);
       return;
     }
     setPhraseSel({
-      tokenIds: ids,
+      lo: trimLo,
+      hi: trimHi,
       buttonTop: anchor.top,
       buttonLeft: anchor.left,
     });
@@ -151,16 +179,16 @@ export function ReaderView({ text }: { text: string }) {
 
   function resetDrag() {
     dragActiveRef.current = false;
-    dragStartIdRef.current = null;
-    dragEndIdRef.current = null;
+    dragStartRef.current = null;
+    dragEndRef.current = null;
   }
 
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    if (e.button !== undefined && e.button !== 0) return; // left mouse / touch only
-    const id = tokenIdAt(e.clientX, e.clientY);
-    if (id === null) return;
-    dragStartIdRef.current = id;
-    dragEndIdRef.current = id;
+    if (e.button !== undefined && e.button !== 0) return;
+    const ci = charIndexAt(e.clientX, e.clientY);
+    if (ci === null) return;
+    dragStartRef.current = ci;
+    dragEndRef.current = ci;
     dragActiveRef.current = true;
     setPhraseSel(null);
     try {
@@ -172,49 +200,30 @@ export function ReaderView({ text }: { text: string }) {
 
   function handlePointerMove(e: ReactPointerEvent<HTMLDivElement>) {
     if (!dragActiveRef.current) return;
-    const id = tokenIdAt(e.clientX, e.clientY);
-    if (id === null) return;
-    if (id === dragEndIdRef.current) return;
-    dragEndIdRef.current = id;
-    setSelectionRange(dragStartIdRef.current!, id);
+    const ci = charIndexAt(e.clientX, e.clientY);
+    if (ci === null || ci === dragEndRef.current) return;
+    dragEndRef.current = ci;
+    setRange(dragStartRef.current!, ci);
   }
 
   function handlePointerUp() {
     if (!dragActiveRef.current) return;
-    const startId = dragStartIdRef.current;
-    const endId = dragEndIdRef.current;
+    const startCi = dragStartRef.current;
+    const endCi = dragEndRef.current;
     resetDrag();
-    if (startId === null || endId === null) return;
-    const lo = Math.min(startId, endId);
-    const hi = Math.max(startId, endId);
-    if (lo === hi) {
-      // Single tap — classify right away.
-      setPhraseSel(null);
-      void runClassify(new Set([lo]));
-    } else {
-      // Multi-token selection — keep highlight + FAB shown until the user
-      // either clicks the FAB or taps elsewhere.
-      setSelectionRange(lo, hi);
-    }
+    if (startCi === null || endCi === null) return;
+    setRange(startCi, endCi);
   }
 
   function handlePointerCancel() {
-    // Scroll / gesture hijack — just drop the drag state.
     resetDrag();
     setPhraseSel(null);
   }
 
-  async function runClassify(ids: Set<number>) {
-    const sortedIds = Array.from(ids).sort((a, b) => a - b);
-    const tokens = sortedIds
-      .map((i) => tokenTexts.get(i))
-      .filter((t): t is string => Boolean(t));
-    const selectedText = tokens.join(' ');
-    const idx = text.indexOf(selectedText);
-    const context =
-      idx >= 0
-        ? extractContext(text, idx, idx + selectedText.length)
-        : text.slice(0, 300);
+  async function runClassify(lo: number, hi: number) {
+    const selectedText = text.slice(lo, hi + 1).trim();
+    if (!selectedText) return;
+    const context = extractContext(text, lo, hi + 1);
 
     setPhraseSel(null);
     openModal();
@@ -272,7 +281,7 @@ export function ReaderView({ text }: { text: string }) {
   return (
     <Stack gap="sm">
       <Text size="xs" c="dimmed">
-        語を<strong>タップ</strong>で単語帳に追加。複数語は<strong>ドラッグ</strong>でつなげて選択できます。助詞・語尾ごと選んでも AI が lemma に戻します。
+        読みたい文字を<strong>ドラッグで選択</strong>すると、上に「登録」ボタンが出ます。1 文字からでも OK（助詞・語尾ごと選んでも AI が lemma に戻します）。
       </Text>
 
       <Paper
@@ -286,22 +295,37 @@ export function ReaderView({ text }: { text: string }) {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
       >
-        {parts.map((p, i) => {
-          if (p.kind === 'space') {
-            return <span key={`s-${i}`}>{p.text}</span>;
+        {pieces.map((piece) => {
+          if (piece.kind === 'space') {
+            // Bridge the background across whitespace when both flanks are in range.
+            const flanked =
+              phraseSel !== null &&
+              piece.ci > phraseSel.lo &&
+              piece.ci + piece.text.length <= phraseSel.hi + 1;
+            return (
+              <span
+                key={`s-${piece.ci}`}
+                className={flanked ? styles.bridge : undefined}
+              >
+                {piece.text}
+              </span>
+            );
           }
-          const isSelected = phraseSel?.tokenIds.has(p.id) ?? false;
-          const isSaved = savedSet.has(p.text);
+          const inRange =
+            phraseSel !== null &&
+            piece.ci >= phraseSel.lo &&
+            piece.ci <= phraseSel.hi;
+          const isSaved = savedSet.has(piece.ch);
           const cls = [
-            styles.token,
-            isSelected ? styles.selected : null,
+            styles.char,
+            inRange ? styles.selected : null,
             isSaved ? styles.saved : null,
           ]
             .filter(Boolean)
             .join(' ');
           return (
-            <span key={`t-${p.id}`} data-token-id={p.id} className={cls}>
-              {p.text}
+            <span key={`c-${piece.ci}`} data-ci={piece.ci} className={cls}>
+              {piece.ch}
             </span>
           );
         })}
@@ -341,8 +365,8 @@ export function ReaderView({ text }: { text: string }) {
         </Alert>
       ) : null}
 
-      {/* FAB anchored above first selected token (multi-token selections). */}
-      {phraseSel && phraseSel.tokenIds.size > 1 ? (
+      {/* FAB anchored above the first selected character. */}
+      {phraseSel ? (
         <Portal>
           <div
             className={styles.phraseFab}
@@ -359,11 +383,11 @@ export function ReaderView({ text }: { text: string }) {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                void runClassify(phraseSel.tokenIds);
+                void runClassify(phraseSel.lo, phraseSel.hi);
               }}
               style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.15)' }}
             >
-              {phraseSel.tokenIds.size} 語を登録
+              「{truncate(text.slice(phraseSel.lo, phraseSel.hi + 1), 10)}」を登録
             </Button>
           </div>
         </Portal>
@@ -501,6 +525,11 @@ export function ReaderView({ text }: { text: string }) {
       </Modal>
     </Stack>
   );
+}
+
+function truncate(s: string, n: number): string {
+  if (s.length <= n) return s;
+  return s.slice(0, n) + '…';
 }
 
 function describeError(code: string): string {

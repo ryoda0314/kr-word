@@ -1,11 +1,12 @@
 .paper {
-  font-size: 17px;
-  line-height: 2;
+  /* Larger default + tighter breathing tuned for Hangul finger-select. */
+  font-size: 20px;
+  line-height: 2.15;
+  letter-spacing: 0.02em;
   white-space: pre-wrap;
   word-break: keep-all;
-  /* Fully suppress native selection so iOS's copy/translate callout doesn't
-     appear and fight with our FAB. All selection is done via pointer events
-     and redrawn as per-token highlights. */
+  /* Native selection fully suppressed — drag-to-select uses pointer events,
+     so iOS's copy/translate callout never appears. */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -13,15 +14,26 @@
   touch-action: auto;
 }
 
-.token {
+@media (max-width: 48em) {
+  .paper {
+    /* Slightly larger on mobile: finger can reach neighboring characters. */
+    font-size: 22px;
+    line-height: 2.25;
+  }
+}
+
+/* Each non-whitespace character is its own span to allow per-character
+   selection. Spans carry a tiny horizontal padding so the hit target is
+   forgiving on touch. */
+.char {
+  display: inline-block;
+  padding: 2px 1.5px;
   border-radius: 3px;
-  padding: 0 1px;
-  cursor: pointer;
-  transition: background-color 120ms ease;
+  transition: background-color 100ms ease;
 }
 
 @media (hover: hover) {
-  .token:hover {
+  .char:hover {
     background-color: light-dark(
       color-mix(in srgb, var(--mantine-color-gray-2) 80%, transparent),
       color-mix(in srgb, var(--mantine-color-dark-5) 70%, transparent)
@@ -29,12 +41,20 @@
   }
 }
 
+/* Highlight a character that falls inside the current drag range. */
 .selected {
   background-color: light-dark(
     var(--mantine-color-grape-2),
     color-mix(in srgb, var(--mantine-color-grape-7) 60%, transparent)
   );
-  border-radius: 2px;
+}
+
+/* Bridge highlight across whitespace runs between two selected chars. */
+.bridge {
+  background-color: light-dark(
+    var(--mantine-color-grape-1),
+    color-mix(in srgb, var(--mantine-color-grape-8) 55%, transparent)
+  );
 }
 
 .saved {
@@ -43,7 +63,7 @@
   outline-offset: 1px;
 }
 
-/* Floating "register" button pinned above the first selected token. */
+/* Floating "register" button pinned above the first selected character. */
 .phraseFab {
   position: absolute;
   transform: translate(-50%, calc(-100% - 10px));

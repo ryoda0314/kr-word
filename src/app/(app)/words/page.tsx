@@ -17,6 +17,30 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { STAGE_LABELS_JA, WORD_TYPE_LABELS_JA } from '@/types/db';
 
 export default async function WordsPage() {
+  console.log('[words/page] import check', {
+    Badge: typeof Badge,
+    Container: typeof Container,
+    Flex: typeof Flex,
+    Group: typeof Group,
+    Stack: typeof Stack,
+    Table: typeof Table,
+    'Table.ScrollContainer': typeof Table?.ScrollContainer,
+    'Table.Thead': typeof Table?.Thead,
+    'Table.Tbody': typeof Table?.Tbody,
+    'Table.Tr': typeof Table?.Tr,
+    'Table.Th': typeof Table?.Th,
+    'Table.Td': typeof Table?.Td,
+    Text: typeof Text,
+    Title: typeof Title,
+    ChevronRight: typeof ChevronRight,
+    PlusCircle: typeof PlusCircle,
+    Link: typeof Link,
+    ActionIconLink: typeof ActionIconLink,
+    ButtonLink: typeof ButtonLink,
+    STAGE_LABELS_JA: typeof STAGE_LABELS_JA,
+    WORD_TYPE_LABELS_JA: typeof WORD_TYPE_LABELS_JA,
+  });
+
   const supabase = await createSupabaseServerClient();
   const { data: words, error } = await supabase
     .from('user_words')

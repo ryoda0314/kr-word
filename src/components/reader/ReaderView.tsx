@@ -281,7 +281,7 @@ export function ReaderView({ text }: { text: string }) {
   return (
     <Stack gap="sm">
       <Text size="xs" c="dimmed">
-        読みたい文字を<strong>ドラッグで選択</strong>すると、上に「登録」ボタンが出ます。1 文字からでも OK（助詞・語尾ごと選んでも AI が lemma に戻します）。
+        読みたい文字を<strong>ドラッグで選択</strong>すると上に「調べる」ボタンが出ます。意味を確認したうえで単語帳に登録できます。1 文字からでも OK（助詞・語尾ごと選んでも AI が lemma に戻します）。
       </Text>
 
       <Paper
@@ -387,7 +387,7 @@ export function ReaderView({ text }: { text: string }) {
               }}
               style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.15)' }}
             >
-              「{truncate(text.slice(phraseSel.lo, phraseSel.hi + 1), 10)}」を登録
+              「{truncate(text.slice(phraseSel.lo, phraseSel.hi + 1), 10)}」を調べる
             </Button>
           </div>
         </Portal>
@@ -396,7 +396,7 @@ export function ReaderView({ text }: { text: string }) {
       <Modal
         opened={modalOpen}
         onClose={handleModalClose}
-        title="選択範囲から単語を登録"
+        title="意味を確認して登録"
         centered
         size="lg"
       >

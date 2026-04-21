@@ -11,14 +11,11 @@ import {
   Paper,
   Stack,
   Text,
-  Textarea,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
   AlertCircle,
-  BookOpen,
   Check,
-  PencilLine,
   Plus,
   Sparkles,
   X,
@@ -31,8 +28,6 @@ import { saveWord } from '@/lib/actions/save-word';
 import type { ClassifiedWord } from '@/lib/ai/schemas';
 import { WORD_TYPE_LABELS_JA } from '@/types/db';
 
-type Mode = 'edit' | 'read';
-
 type PendingClassify =
   | { state: 'idle' }
   | { state: 'loading'; selectedText: string }
@@ -44,21 +39,26 @@ type PendingClassify =
     }
   | { state: 'error'; selectedText: string; code: string };
 
-const CONTEXT_WINDOW = 120; // chars before/after selection for context
+const CONTEXT_WINDOW = 120;
 
 function extractContext(
   fullText: string,
-  selectionStart: number,
-  selectionEnd: number,
+  start: number,
+  end: number,
 ): string {
-  const lo = Math.max(0, selectionStart - CONTEXT_WINDOW);
-  const hi = Math.min(fullText.length, selectionEnd + CONTEXT_WINDOW);
+  const lo = Math.max(0, start - CONTEXT_WINDOW);
+  const hi = Math.min(fullText.length, end + CONTEXT_WINDOW);
   return fullText.slice(lo, hi).trim();
 }
 
-export function ReaderShell() {
-  const [mode, setMode] = useState<Mode>('edit');
-  const [text, setText] = useState('');
+/**
+ * Renders Korean text as a drag-selectable paragraph. Selection triggers a
+ * floating "register" button; clicking it opens a modal with AI classify
+ * preview and save-to-vocab action. Tokenization is intentionally skipped
+ * — Korean is agglutinative and whitespace boundaries don't match
+ * dictionary forms, so we let the learner pick the range directly.
+ */
+export function ReaderView({ text }: { text: string }) {
   const [savedLemmas, setSavedLemmas] = useState<string[]>([]);
   const [pending, setPending] = useState<PendingClassify>({ state: 'idle' });
   const [saving, setSaving] = useState(false);
@@ -68,16 +68,13 @@ export function ReaderShell() {
     useDisclosure(false);
   const readerRef = useRef<HTMLDivElement>(null);
 
-  // Track selection inside the reader area.
   const refreshSelection = useCallback(() => {
-    if (mode !== 'read') return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) {
       setCurrentSelection('');
       return;
     }
     if (!readerRef.current) return;
-    // Only count selection if it's inside the reader container.
     const anchor = sel.anchorNode;
     if (!anchor || !readerRef.current.contains(anchor)) {
       setCurrentSelection('');
@@ -85,19 +82,16 @@ export function ReaderShell() {
     }
     const s = sel.toString().trim();
     setCurrentSelection(s);
-  }, [mode]);
+  }, []);
 
   useEffect(() => {
-    if (mode !== 'read') return;
     const handler = () => refreshSelection();
     document.addEventListener('selectionchange', handler);
     return () => document.removeEventListener('selectionchange', handler);
-  }, [mode, refreshSelection]);
+  }, [refreshSelection]);
 
   async function handleClassifySelection() {
     if (!currentSelection) return;
-    // Find where the selection is in the full text for context extraction.
-    // (Simple indexOf — good enough since we pass the actual selected text too.)
     const idx = text.indexOf(currentSelection);
     const context =
       idx >= 0
@@ -137,9 +131,7 @@ export function ReaderShell() {
     setSaving(false);
     if (!res.ok) {
       if (res.error === 'DUPLICATE') {
-        setToast(
-          `「${pending.word.lemma}」はすでに登録されています。`,
-        );
+        setToast(`「${pending.word.lemma}」はすでに登録されています。`);
       } else {
         setPending({
           state: 'error',
@@ -156,7 +148,6 @@ export function ReaderShell() {
     }
     closeModal();
     setPending({ state: 'idle' });
-    // Clear selection
     window.getSelection()?.removeAllRanges();
     setCurrentSelection('');
   }
@@ -167,83 +158,47 @@ export function ReaderShell() {
   }
 
   return (
-    <Stack gap="md">
-      {mode === 'edit' ? (
-        <Stack gap="sm">
-          <Textarea
-            label="韓国語の文章"
-            placeholder="ニュース・K-drama の台本・教科書・歌詞など、読みたい韓国語のテキストを貼り付けてください。"
-            value={text}
-            onChange={(e) => setText(e.currentTarget.value)}
-            autosize
-            minRows={6}
-            maxRows={16}
-          />
-          <Group justify="flex-end">
-            <Button
-              onClick={() => setMode('read')}
-              disabled={text.trim().length < 5}
-              leftSection={<BookOpen size={14} />}
-            >
-              読み始める
-            </Button>
-          </Group>
-        </Stack>
-      ) : (
-        <Stack gap="sm">
-          <Group justify="space-between">
-            <Text size="xs" c="dimmed">
-              本文を<strong>ドラッグで選択</strong>し、右下のボタンで単語帳に追加できます。
+    <Stack gap="sm">
+      <Text size="xs" c="dimmed">
+        本文を<strong>ドラッグで選択</strong>し、右下のボタンで単語帳に追加できます。助詞・語尾ごと選んでも AI が lemma に戻します。
+      </Text>
+
+      <Paper
+        ref={readerRef}
+        withBorder
+        radius="md"
+        p={{ base: 'md', md: 'xl' }}
+        style={{
+          fontSize: 17,
+          lineHeight: 2,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'keep-all',
+        }}
+      >
+        {text}
+      </Paper>
+
+      {savedLemmas.length > 0 ? (
+        <Card withBorder radius="sm" p="sm">
+          <Stack gap={4}>
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={1}>
+              このセッションで追加
             </Text>
-            <Button
-              variant="subtle"
-              color="gray"
-              size="xs"
-              leftSection={<PencilLine size={12} />}
-              onClick={() => setMode('edit')}
-            >
-              本文を編集
-            </Button>
-          </Group>
-
-          <Paper
-            ref={readerRef}
-            withBorder
-            radius="md"
-            p={{ base: 'md', md: 'xl' }}
-            style={{
-              fontSize: 17,
-              lineHeight: 1.9,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'keep-all',
-            }}
-          >
-            {text}
-          </Paper>
-
-          {savedLemmas.length > 0 ? (
-            <Card withBorder radius="sm" p="sm">
-              <Stack gap={4}>
-                <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={1}>
-                  このセッションで追加
-                </Text>
-                <Group gap={6} wrap="wrap">
-                  {savedLemmas.map((l) => (
-                    <Badge
-                      key={l}
-                      variant="light"
-                      color="teal"
-                      leftSection={<Check size={10} />}
-                    >
-                      {l}
-                    </Badge>
-                  ))}
-                </Group>
-              </Stack>
-            </Card>
-          ) : null}
-        </Stack>
-      )}
+            <Group gap={6} wrap="wrap">
+              {savedLemmas.map((l) => (
+                <Badge
+                  key={l}
+                  variant="light"
+                  color="teal"
+                  leftSection={<Check size={10} />}
+                >
+                  {l}
+                </Badge>
+              ))}
+            </Group>
+          </Stack>
+        </Card>
+      ) : null}
 
       {toast ? (
         <Alert
@@ -258,30 +213,28 @@ export function ReaderShell() {
       ) : null}
 
       {/* Floating selection action */}
-      {mode === 'read' ? (
-        <div
-          style={{
-            position: 'fixed',
-            right: 20,
-            bottom: 20,
-            zIndex: 50,
-            pointerEvents: currentSelection ? 'auto' : 'none',
-            opacity: currentSelection ? 1 : 0,
-            transform: currentSelection ? 'translateY(0)' : 'translateY(8px)',
-            transition: 'opacity 150ms ease, transform 150ms ease',
-          }}
+      <div
+        style={{
+          position: 'fixed',
+          right: 20,
+          bottom: 20,
+          zIndex: 50,
+          pointerEvents: currentSelection ? 'auto' : 'none',
+          opacity: currentSelection ? 1 : 0,
+          transform: currentSelection ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 150ms ease, transform 150ms ease',
+        }}
+      >
+        <Button
+          color="grape"
+          size="md"
+          leftSection={<Sparkles size={14} />}
+          onClick={handleClassifySelection}
+          style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.15)' }}
         >
-          <Button
-            color="grape"
-            size="md"
-            leftSection={<Sparkles size={14} />}
-            onClick={handleClassifySelection}
-            style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.15)' }}
-          >
-            「{truncate(currentSelection, 10)}」を登録
-          </Button>
-        </div>
-      ) : null}
+          「{truncate(currentSelection, 10)}」を登録
+        </Button>
+      </div>
 
       <Modal
         opened={modalOpen}

@@ -88,6 +88,36 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['user_words']['Insert']>;
         Relationships: [];
       };
+      user_passages: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          body: string;
+          topik_level: number | null;
+          genre: string | null;
+          source: 'ai' | 'pasted';
+          word_count: number | null;
+          notes: string | null;
+          created_at: Timestamptz;
+          last_opened_at: Timestamptz;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          body: string;
+          topik_level?: number | null;
+          genre?: string | null;
+          source?: 'ai' | 'pasted';
+          word_count?: number | null;
+          notes?: string | null;
+          created_at?: Timestamptz;
+          last_opened_at?: Timestamptz;
+        };
+        Update: Partial<Database['public']['Tables']['user_passages']['Insert']>;
+        Relationships: [];
+      };
       user_sentences: {
         Row: {
           id: string;

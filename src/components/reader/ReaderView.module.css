@@ -3,31 +3,47 @@
   line-height: 2;
   white-space: pre-wrap;
   word-break: keep-all;
-  user-select: text;
-  -webkit-user-select: text;
+  /* Fully suppress native selection so iOS's copy/translate callout doesn't
+     appear and fight with our FAB. All selection is done via pointer events
+     and redrawn as per-token highlights. */
+  user-select: none;
+  -webkit-user-select: none;
   -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: auto;
 }
 
-/* Hide the browser's native selection highlight inside the reader; the
-   dotted outline overlay takes its place. */
-.paper ::selection,
-.paper ::-moz-selection {
-  background: transparent;
-  color: inherit;
+.token {
+  border-radius: 3px;
+  padding: 0 1px;
+  cursor: pointer;
+  transition: background-color 120ms ease;
 }
 
-/* Dashed outline overlay that groups a selected range (one rect per line). */
-.phraseOutline {
-  position: absolute;
-  border: 2px dashed
-    light-dark(var(--mantine-color-grape-6), var(--mantine-color-grape-4));
-  border-radius: 6px;
-  pointer-events: none;
-  z-index: 300;
-  transition: opacity 120ms ease;
+@media (hover: hover) {
+  .token:hover {
+    background-color: light-dark(
+      color-mix(in srgb, var(--mantine-color-gray-2) 80%, transparent),
+      color-mix(in srgb, var(--mantine-color-dark-5) 70%, transparent)
+    );
+  }
 }
 
-/* Floating "register" button pinned above the selection. */
+.selected {
+  background-color: light-dark(
+    var(--mantine-color-grape-2),
+    color-mix(in srgb, var(--mantine-color-grape-7) 60%, transparent)
+  );
+  border-radius: 2px;
+}
+
+.saved {
+  outline: 1px dashed
+    light-dark(var(--mantine-color-teal-6), var(--mantine-color-teal-5));
+  outline-offset: 1px;
+}
+
+/* Floating "register" button pinned above the first selected token. */
 .phraseFab {
   position: absolute;
   transform: translate(-50%, calc(-100% - 10px));

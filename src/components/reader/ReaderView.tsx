@@ -21,7 +21,8 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { SpeechButton } from '@/components/common/SpeechButton';
 import { classifyWord } from '@/lib/actions/classify';
@@ -30,6 +31,23 @@ import type { ClassifiedWord } from '@/lib/ai/schemas';
 import { WORD_TYPE_LABELS_JA } from '@/types/db';
 
 import styles from './ReaderView.module.css';
+
+type Part =
+  | { kind: 'space'; text: string }
+  | { kind: 'token'; id: number; text: string };
+
+/** Split the body into whitespace + non-whitespace (어절) runs. */
+function tokenize(body: string): Part[] {
+  const parts: Part[] = [];
+  let id = 0;
+  const re = /(\s+)|(\S+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body)) !== null) {
+    if (m[1]) parts.push({ kind: 'space', text: m[1] });
+    else if (m[2]) parts.push({ kind: 'token', id: id++, text: m[2] });
+  }
+  return parts;
+}
 
 type PendingClassify =
   | { state: 'idle' }
@@ -43,11 +61,9 @@ type PendingClassify =
   | { state: 'error'; selectedText: string; code: string };
 
 type PhraseSel = {
-  text: string;
+  tokenIds: Set<number>;
   buttonTop: number;
   buttonLeft: number;
-  groupRects: Array<{ top: number; left: number; width: number; height: number }>;
-  context: string;
 };
 
 const CONTEXT_WINDOW = 120;
@@ -62,16 +78,33 @@ function extractContext(
   return fullText.slice(lo, hi).trim();
 }
 
+function tokenIdAt(x: number, y: number): number | null {
+  const el = document.elementFromPoint(x, y) as HTMLElement | null;
+  if (!el) return null;
+  const span = el.closest<HTMLElement>('[data-token-id]');
+  if (!span) return null;
+  const n = Number(span.dataset.tokenId);
+  return Number.isFinite(n) ? n : null;
+}
+
 /**
- * Renders Korean text as a drag-selectable paragraph. Matches en-word-book's
- * reader UX: while dragging, a dashed outline wraps each line of the selection
- * and a floating button appears above it. Clicking the button opens a modal
- * with an AI classify preview and save-to-vocab action.
+ * Korean passage reader. The body is whitespace-tokenized into 어절 and each
+ * chunk is rendered as a pointer-interactive span. Native text selection is
+ * disabled (via user-select: none) so iOS's copy/translate callout never
+ * appears; drag-to-extend uses pointer events instead.
  *
- * Korean is agglutinative, so we don't tokenize — the learner picks the
- * character range directly and the AI normalizes it to the dictionary form.
+ *   - Tap → classify that one 어절 immediately
+ *   - Drag across multiple 어절 → highlight + floating "register" FAB
+ *   - Scroll gesture cancels the drag via pointercancel
  */
 export function ReaderView({ text }: { text: string }) {
+  const parts = useMemo(() => tokenize(text), [text]);
+  const tokenTexts = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const p of parts) if (p.kind === 'token') m.set(p.id, p.text);
+    return m;
+  }, [parts]);
+
   const [savedLemmas, setSavedLemmas] = useState<string[]>([]);
   const [pending, setPending] = useState<PendingClassify>({ state: 'idle' });
   const [saving, setSaving] = useState(false);
@@ -79,108 +112,111 @@ export function ReaderView({ text }: { text: string }) {
   const [phraseSel, setPhraseSel] = useState<PhraseSel | null>(null);
   const [modalOpen, { open: openModal, close: closeModal }] =
     useDisclosure(false);
+
   const paperRef = useRef<HTMLDivElement>(null);
+  const dragStartIdRef = useRef<number | null>(null);
+  const dragEndIdRef = useRef<number | null>(null);
+  const dragActiveRef = useRef(false);
 
-  const refreshSelection = useCallback(() => {
-    const sel = window.getSelection();
+  function computeFabAnchor(firstId: number): { top: number; left: number } | null {
     const paper = paperRef.current;
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !paper) {
-      setPhraseSel(null);
-      return;
-    }
-    const range = sel.getRangeAt(0);
-    if (!paper.contains(range.commonAncestorContainer)) {
-      setPhraseSel(null);
-      return;
-    }
-    const raw = sel.toString();
-    const trimmed = raw.trim();
-    if (!trimmed) {
-      setPhraseSel(null);
-      return;
-    }
-
-    // Group per-span client rects by line (merge rects on the same baseline).
-    const rawRects = Array.from(range.getClientRects()).filter(
-      (r) => r.width > 0 && r.height > 0,
+    if (!paper) return null;
+    const firstSpan = paper.querySelector<HTMLElement>(
+      `[data-token-id="${firstId}"]`,
     );
-    if (rawRects.length === 0) {
+    if (!firstSpan) return null;
+    const rect = firstSpan.getBoundingClientRect();
+    return {
+      top: rect.top + window.scrollY,
+      left: (rect.left + rect.right) / 2 + window.scrollX,
+    };
+  }
+
+  function setSelectionRange(startId: number, endId: number) {
+    const lo = Math.min(startId, endId);
+    const hi = Math.max(startId, endId);
+    const ids = new Set<number>();
+    for (let i = lo; i <= hi; i++) ids.add(i);
+    const anchor = computeFabAnchor(lo);
+    if (!anchor) {
       setPhraseSel(null);
       return;
     }
-
-    const LINE_EPSILON = 3;
-    const sortedRects = rawRects
-      .slice()
-      .sort((a, b) => a.top - b.top || a.left - b.left);
-    const lineGroups: DOMRect[][] = [];
-    for (const r of sortedRects) {
-      const last = lineGroups[lineGroups.length - 1];
-      if (
-        last &&
-        Math.abs(last[0].top - r.top) <= LINE_EPSILON &&
-        Math.abs(last[0].bottom - r.bottom) <= LINE_EPSILON
-      ) {
-        last.push(r);
-      } else {
-        lineGroups.push([r]);
-      }
-    }
-
-    const scrollY = window.scrollY;
-    const scrollX = window.scrollX;
-    const groupRects = lineGroups.map((line) => {
-      const top = Math.min(...line.map((r) => r.top));
-      const bottom = Math.max(...line.map((r) => r.bottom));
-      const left = Math.min(...line.map((r) => r.left));
-      const right = Math.max(...line.map((r) => r.right));
-      return {
-        top: top + scrollY,
-        left: left + scrollX,
-        width: right - left,
-        height: bottom - top,
-      };
+    setPhraseSel({
+      tokenIds: ids,
+      buttonTop: anchor.top,
+      buttonLeft: anchor.left,
     });
+  }
 
-    const firstRect = sortedRects[0];
-    const buttonTop = firstRect.top + scrollY;
-    const buttonLeft = (firstRect.left + firstRect.right) / 2 + scrollX;
+  function resetDrag() {
+    dragActiveRef.current = false;
+    dragStartIdRef.current = null;
+    dragEndIdRef.current = null;
+  }
 
-    const idx = text.indexOf(trimmed);
+  function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (e.button !== undefined && e.button !== 0) return; // left mouse / touch only
+    const id = tokenIdAt(e.clientX, e.clientY);
+    if (id === null) return;
+    dragStartIdRef.current = id;
+    dragEndIdRef.current = id;
+    dragActiveRef.current = true;
+    setPhraseSel(null);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function handlePointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!dragActiveRef.current) return;
+    const id = tokenIdAt(e.clientX, e.clientY);
+    if (id === null) return;
+    if (id === dragEndIdRef.current) return;
+    dragEndIdRef.current = id;
+    setSelectionRange(dragStartIdRef.current!, id);
+  }
+
+  function handlePointerUp() {
+    if (!dragActiveRef.current) return;
+    const startId = dragStartIdRef.current;
+    const endId = dragEndIdRef.current;
+    resetDrag();
+    if (startId === null || endId === null) return;
+    const lo = Math.min(startId, endId);
+    const hi = Math.max(startId, endId);
+    if (lo === hi) {
+      // Single tap — classify right away.
+      setPhraseSel(null);
+      void runClassify(new Set([lo]));
+    } else {
+      // Multi-token selection — keep highlight + FAB shown until the user
+      // either clicks the FAB or taps elsewhere.
+      setSelectionRange(lo, hi);
+    }
+  }
+
+  function handlePointerCancel() {
+    // Scroll / gesture hijack — just drop the drag state.
+    resetDrag();
+    setPhraseSel(null);
+  }
+
+  async function runClassify(ids: Set<number>) {
+    const sortedIds = Array.from(ids).sort((a, b) => a - b);
+    const tokens = sortedIds
+      .map((i) => tokenTexts.get(i))
+      .filter((t): t is string => Boolean(t));
+    const selectedText = tokens.join(' ');
+    const idx = text.indexOf(selectedText);
     const context =
       idx >= 0
-        ? extractContext(text, idx, idx + trimmed.length)
+        ? extractContext(text, idx, idx + selectedText.length)
         : text.slice(0, 300);
 
-    setPhraseSel({
-      text: trimmed,
-      buttonTop,
-      buttonLeft,
-      groupRects,
-      context,
-    });
-  }, [text]);
-
-  useEffect(() => {
-    const handler = () => refreshSelection();
-    document.addEventListener('selectionchange', handler);
-    window.addEventListener('resize', handler);
-    window.addEventListener('scroll', handler, true);
-    return () => {
-      document.removeEventListener('selectionchange', handler);
-      window.removeEventListener('resize', handler);
-      window.removeEventListener('scroll', handler, true);
-    };
-  }, [refreshSelection]);
-
-  async function handleClassifySelection() {
-    if (!phraseSel) return;
-    const selectedText = phraseSel.text;
-    const context = phraseSel.context;
-
-    window.getSelection()?.removeAllRanges();
     setPhraseSel(null);
-
     openModal();
     setPending({ state: 'loading', selectedText });
     const res = await classifyWord({ term: selectedText, context });
@@ -231,10 +267,12 @@ export function ReaderView({ text }: { text: string }) {
     setPending({ state: 'idle' });
   }
 
+  const savedSet = useMemo(() => new Set(savedLemmas), [savedLemmas]);
+
   return (
     <Stack gap="sm">
       <Text size="xs" c="dimmed">
-        本文を<strong>ドラッグで選択</strong>すると、選択範囲の上にボタンが出ます。助詞・語尾ごと選んでも AI が lemma に戻します。
+        語を<strong>タップ</strong>で単語帳に追加。複数語は<strong>ドラッグ</strong>でつなげて選択できます。助詞・語尾ごと選んでも AI が lemma に戻します。
       </Text>
 
       <Paper
@@ -243,8 +281,30 @@ export function ReaderView({ text }: { text: string }) {
         radius="md"
         p={{ base: 'md', md: 'xl' }}
         className={styles.paper}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
       >
-        {text}
+        {parts.map((p, i) => {
+          if (p.kind === 'space') {
+            return <span key={`s-${i}`}>{p.text}</span>;
+          }
+          const isSelected = phraseSel?.tokenIds.has(p.id) ?? false;
+          const isSaved = savedSet.has(p.text);
+          const cls = [
+            styles.token,
+            isSelected ? styles.selected : null,
+            isSaved ? styles.saved : null,
+          ]
+            .filter(Boolean)
+            .join(' ');
+          return (
+            <span key={`t-${p.id}`} data-token-id={p.id} className={cls}>
+              {p.text}
+            </span>
+          );
+        })}
       </Paper>
 
       {savedLemmas.length > 0 ? (
@@ -281,22 +341,9 @@ export function ReaderView({ text }: { text: string }) {
         </Alert>
       ) : null}
 
-      {/* Dotted outlines + anchored FAB (en-parity UX) */}
-      {phraseSel ? (
+      {/* FAB anchored above first selected token (multi-token selections). */}
+      {phraseSel && phraseSel.tokenIds.size > 1 ? (
         <Portal>
-          {phraseSel.groupRects.map((r, i) => (
-            <div
-              key={i}
-              className={styles.phraseOutline}
-              style={{
-                top: r.top - 2,
-                left: r.left - 2,
-                width: r.width + 4,
-                height: r.height + 4,
-              }}
-              aria-hidden
-            />
-          ))}
           <div
             className={styles.phraseFab}
             style={{ top: phraseSel.buttonTop, left: phraseSel.buttonLeft }}
@@ -305,13 +352,18 @@ export function ReaderView({ text }: { text: string }) {
               color="grape"
               size="xs"
               leftSection={<Sparkles size={12} />}
-              onMouseDown={(e) => {
+              onPointerDown={(e) => {
                 e.preventDefault();
-                handleClassifySelection();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void runClassify(phraseSel.tokenIds);
               }}
               style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.15)' }}
             >
-              「{truncate(phraseSel.text, 10)}」を登録
+              {phraseSel.tokenIds.size} 語を登録
             </Button>
           </div>
         </Portal>
@@ -449,11 +501,6 @@ export function ReaderView({ text }: { text: string }) {
       </Modal>
     </Stack>
   );
-}
-
-function truncate(s: string, n: number): string {
-  if (s.length <= n) return s;
-  return s.slice(0, n) + '…';
 }
 
 function describeError(code: string): string {

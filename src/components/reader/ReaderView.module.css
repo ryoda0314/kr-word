@@ -1,8 +1,8 @@
 .paper {
-  /* Larger default + tighter breathing tuned for Hangul finger-select. */
-  font-size: 20px;
-  line-height: 2.15;
-  letter-spacing: 0.02em;
+  /* Desktop default — comfortably readable Hangul. */
+  font-size: 22px;
+  line-height: 2.2;
+  letter-spacing: 0.04em;
   white-space: pre-wrap;
   word-break: keep-all;
   /* Native selection fully suppressed — drag-to-select uses pointer events,
@@ -16,20 +16,26 @@
 
 @media (max-width: 48em) {
   .paper {
-    /* Slightly larger on mobile: finger can reach neighboring characters. */
-    font-size: 22px;
-    line-height: 2.25;
+    /* Phone / small tablet: much larger so per-character drag is easy. */
+    font-size: 28px;
+    line-height: 2.3;
+    letter-spacing: 0.05em;
   }
 }
 
-/* Each non-whitespace character is its own span to allow per-character
-   selection. Spans carry a tiny horizontal padding so the hit target is
-   forgiving on touch. */
+/* Each non-whitespace character is its own span. Generous padding so the
+   finger-sized hit target reaches neighboring blocks. */
 .char {
   display: inline-block;
-  padding: 2px 1.5px;
-  border-radius: 3px;
+  padding: 3px 2px;
+  border-radius: 4px;
   transition: background-color 100ms ease;
+}
+
+@media (max-width: 48em) {
+  .char {
+    padding: 5px 3px;
+  }
 }
 
 @media (hover: hover) {
@@ -41,7 +47,6 @@
   }
 }
 
-/* Highlight a character that falls inside the current drag range. */
 .selected {
   background-color: light-dark(
     var(--mantine-color-grape-2),
@@ -49,7 +54,6 @@
   );
 }
 
-/* Bridge highlight across whitespace runs between two selected chars. */
 .bridge {
   background-color: light-dark(
     var(--mantine-color-grape-1),
@@ -63,7 +67,6 @@
   outline-offset: 1px;
 }
 
-/* Floating "register" button pinned above the first selected character. */
 .phraseFab {
   position: absolute;
   transform: translate(-50%, calc(-100% - 10px));

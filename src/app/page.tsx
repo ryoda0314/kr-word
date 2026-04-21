@@ -23,8 +23,8 @@ export default async function HomePage() {
         </Text>
         <Group gap="sm" mt="md">
           {user ? (
-            <ButtonLink href="/words" size="md">
-              単語帳をひらく
+            <ButtonLink href="/dashboard" size="md">
+              ダッシュボードへ
             </ButtonLink>
           ) : (
             <>

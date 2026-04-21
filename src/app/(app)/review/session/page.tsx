@@ -19,7 +19,7 @@ export default async function ReviewSessionPage() {
   const { data: rows } = await supabase
     .from('user_words')
     .select(
-      'id, lemma, hanja, word_type, part_of_speech, meaning_ja, example_topik, example_topik_ja, example_daily, example_daily_ja, notes, stage',
+      'id, lemma, hanja, phonetic, word_type, part_of_speech, meaning_ja, example_topik, example_topik_ja, example_daily, example_daily_ja, notes, stage',
     )
     .eq('user_id', user.id)
     .neq('stage', 'mastered')
@@ -31,6 +31,7 @@ export default async function ReviewSessionPage() {
     id: r.id,
     lemma: r.lemma,
     hanja: r.hanja,
+    phonetic: r.phonetic,
     word_type: r.word_type as WordType,
     part_of_speech: r.part_of_speech,
     meaning_ja: r.meaning_ja,

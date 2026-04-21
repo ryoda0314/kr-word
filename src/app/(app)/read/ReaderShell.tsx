@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { SpeechButton } from '@/components/common/SpeechButton';
 import { classifyWord } from '@/lib/actions/classify';
 import { saveWord } from '@/lib/actions/save-word';
 import type { ClassifiedWord } from '@/lib/ai/schemas';
@@ -312,7 +313,7 @@ export function ReaderShell() {
             <Card withBorder radius="md" p="md">
               <Stack gap="sm">
                 <Group justify="space-between" wrap="wrap">
-                  <Group gap="sm" wrap="wrap">
+                  <Group gap="sm" wrap="wrap" align="center">
                     <Text size="xl" fw={700}>
                       {pending.word.lemma}
                     </Text>
@@ -321,6 +322,12 @@ export function ReaderShell() {
                         {pending.word.hanja}
                       </Text>
                     ) : null}
+                    {pending.word.phonetic ? (
+                      <Text size="sm" c="grape" ff="monospace">
+                        {pending.word.phonetic}
+                      </Text>
+                    ) : null}
+                    <SpeechButton text={pending.word.lemma} size="sm" />
                   </Group>
                   <Group gap={4}>
                     <Badge variant="light" color="grape">

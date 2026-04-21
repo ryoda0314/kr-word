@@ -20,7 +20,8 @@ import { AlertCircle, Check, Save, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { PARTS_OF_SPEECH, WORD_TYPES } from '@/lib/ai/schemas';
+import { SpeechButton } from '@/components/common/SpeechButton';
+import { WORD_TYPES } from '@/lib/ai/schemas';
 import { deleteWord, updateWord } from '@/lib/actions/update-word';
 import {
   STAGE_LABELS_JA,
@@ -36,6 +37,7 @@ type Word = {
   word_type: WordType;
   part_of_speech: string | null;
   meaning_ja: string;
+  phonetic: string | null;
   daily_usage_score: number;
   topik_level: number | null;
   example_topik: string | null;
@@ -94,6 +96,7 @@ export function EditWordForm({ word }: { word: Word }) {
       part_of_speech: partOfSpeech,
       word_type: form.word_type,
       meaning_ja: form.meaning_ja,
+      phonetic: form.phonetic?.trim() || null,
       daily_usage_score: form.daily_usage_score,
       topik_level: form.topik_level,
       example_topik: form.example_topik,
@@ -128,16 +131,27 @@ export function EditWordForm({ word }: { word: Word }) {
   return (
     <Stack gap="lg">
       <Card withBorder radius="md" p="md">
-        <Group gap="xs" wrap="wrap">
-          <Badge variant="light" color="grape">
-            {WORD_TYPE_LABELS_JA[form.word_type]}
-          </Badge>
-          <Badge variant="default">{STAGE_LABELS_JA[form.stage]}</Badge>
-          {form.lapses > 0 ? (
-            <Badge variant="outline" color="red">
-              lapses {form.lapses}
+        <Group justify="space-between" wrap="wrap" gap="xs">
+          <Group gap="xs" wrap="wrap">
+            <Badge variant="light" color="grape">
+              {WORD_TYPE_LABELS_JA[form.word_type]}
             </Badge>
-          ) : null}
+            <Badge variant="default">{STAGE_LABELS_JA[form.stage]}</Badge>
+            {form.lapses > 0 ? (
+              <Badge variant="outline" color="red">
+                lapses {form.lapses}
+              </Badge>
+            ) : null}
+            {form.phonetic ? (
+              <Badge variant="outline" color="grape" ff="monospace">
+                {form.phonetic}
+              </Badge>
+            ) : null}
+          </Group>
+          <Group gap={4}>
+            <SpeechButton text={form.lemma} size="sm" />
+            <SpeechButton text={form.lemma} slow size="sm" label="ゆっくり" />
+          </Group>
         </Group>
       </Card>
 
@@ -179,6 +193,14 @@ export function EditWordForm({ word }: { word: Word }) {
           value={form.meaning_ja}
           onChange={(e) => patch('meaning_ja', e.currentTarget.value)}
           required
+        />
+
+        <TextInput
+          label="実際の発音 (パッチム注意ポイント)"
+          description="空欄なら綴りどおり。例: 학교 → [학꾜] (경음화), 국민 → [궁민] (비음화)"
+          value={form.phonetic ?? ''}
+          onChange={(e) => patch('phonetic', e.currentTarget.value || null)}
+          placeholder="[학꾜]"
         />
 
         <Stack gap={4}>

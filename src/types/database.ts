@@ -37,6 +37,7 @@ export type Database = {
           part_of_speech: string | null;
           word_type: WordType;
           meaning_ja: string;
+          phonetic: string | null;
           daily_usage_score: number;
           topik_level: number | null;
           example_topik: string | null;
@@ -64,6 +65,7 @@ export type Database = {
           part_of_speech?: string | null;
           word_type: WordType;
           meaning_ja: string;
+          phonetic?: string | null;
           daily_usage_score?: number;
           topik_level?: number | null;
           example_topik?: string | null;

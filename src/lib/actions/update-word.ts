@@ -13,6 +13,7 @@ const updateSchema = z.object({
   part_of_speech: z.enum(PARTS_OF_SPEECH),
   word_type: z.enum(WORD_TYPES),
   meaning_ja: z.string().min(1).max(200),
+  phonetic: z.string().max(100).nullable(),
   daily_usage_score: z.number().int().min(0).max(100),
   topik_level: z.number().int().min(1).max(6).nullable(),
   example_topik: z.string().max(300).nullable(),

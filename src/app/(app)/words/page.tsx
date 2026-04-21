@@ -21,7 +21,7 @@ export default async function WordsPage() {
   const { data: words, error } = await supabase
     .from('user_words')
     .select(
-      'id, lemma, hanja, word_type, meaning_ja, daily_usage_score, topik_level, stage, next_review_at, created_at',
+      'id, lemma, hanja, phonetic, word_type, meaning_ja, daily_usage_score, topik_level, stage, next_review_at, created_at',
     )
     .order('created_at', { ascending: false })
     .limit(200);
@@ -80,11 +80,18 @@ export default async function WordsPage() {
                       >
                         <Stack gap={2}>
                           <Text fw={600}>{w.lemma}</Text>
-                          {w.hanja ? (
-                            <Text size="xs" c="dimmed" ff="monospace">
-                              {w.hanja}
-                            </Text>
-                          ) : null}
+                          <Group gap={4}>
+                            {w.hanja ? (
+                              <Text size="xs" c="dimmed" ff="monospace">
+                                {w.hanja}
+                              </Text>
+                            ) : null}
+                            {w.phonetic ? (
+                              <Text size="xs" c="grape" ff="monospace">
+                                {w.phonetic}
+                              </Text>
+                            ) : null}
+                          </Group>
                         </Stack>
                       </Link>
                     </Table.Td>

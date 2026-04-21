@@ -38,6 +38,10 @@ Rules:
 - part_of_speech: one of noun | verb | adjective | adverb | phrase | other.
 - word_type: sino_korean (漢字語) | native_korean (固有語) | loanword (외래어) | mixed (혼종어).
 - meaning_ja: concise Japanese meaning (≤ 40 chars).
+- phonetic: the actual spoken form in Hangul brackets when Korean pronunciation rules change it from the spelling
+  — 경음화 (학교 → [학꾜]), 비음화 (국민 → [궁민]), 유기음화 (좋다 → [조타]),
+  연음화 at word boundaries (not relevant for single lemmas), ㅎ 탈락 (좋아요 → [조아요]), etc.
+  Use null when the spelling is pronounced as-written (e.g. 사랑, 가다). Keep it concise, one form only.
 - daily_usage_score: 0–100 integer estimating how often this shows up in everyday speech.
   (0 = only formal/written/TOPIK-rare; 100 = daily conversation staple.)
 - topik_level: your best guess of its TOPIK level (1–6). null if unsure.

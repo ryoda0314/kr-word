@@ -22,7 +22,7 @@ export default async function WordDetailPage({
   const { data: word } = await supabase
     .from('user_words')
     .select(
-      'id, lemma, hanja, word_type, part_of_speech, meaning_ja, daily_usage_score, topik_level, example_topik, example_topik_ja, example_daily, example_daily_ja, notes, stage, ease, interval_days, repetition, lapses, next_review_at, last_reviewed_at, created_at',
+      'id, lemma, hanja, word_type, part_of_speech, meaning_ja, phonetic, daily_usage_score, topik_level, example_topik, example_topik_ja, example_daily, example_daily_ja, notes, stage, ease, interval_days, repetition, lapses, next_review_at, last_reviewed_at, created_at',
     )
     .eq('id', id)
     .eq('user_id', user.id)
@@ -48,6 +48,7 @@ export default async function WordDetailPage({
             word_type: word.word_type as WordType,
             part_of_speech: word.part_of_speech,
             meaning_ja: word.meaning_ja,
+            phonetic: word.phonetic,
             daily_usage_score: word.daily_usage_score,
             topik_level: word.topik_level,
             example_topik: word.example_topik,

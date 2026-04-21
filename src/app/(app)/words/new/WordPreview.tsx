@@ -9,6 +9,7 @@ import {
   Text,
 } from '@mantine/core';
 
+import { SpeechButton } from '@/components/common/SpeechButton';
 import type { ClassifiedWord } from '@/lib/ai/schemas';
 import { WORD_TYPE_LABELS_JA } from '@/types/db';
 
@@ -17,7 +18,7 @@ export function WordPreview({ word }: { word: ClassifiedWord }) {
     <Card withBorder radius="md" p="md">
       <Stack gap="sm">
         <Group justify="space-between" wrap="wrap" gap="xs">
-          <Group gap="sm" wrap="wrap">
+          <Group gap="sm" wrap="wrap" align="center">
             <Text size="xl" fw={700}>
               {word.lemma}
             </Text>
@@ -26,6 +27,12 @@ export function WordPreview({ word }: { word: ClassifiedWord }) {
                 {word.hanja}
               </Text>
             ) : null}
+            {word.phonetic ? (
+              <Text size="sm" c="grape" ff="monospace">
+                {word.phonetic}
+              </Text>
+            ) : null}
+            <SpeechButton text={word.lemma} size="sm" />
           </Group>
           <Group gap={4}>
             <Badge variant="light" color="grape">
@@ -48,9 +55,12 @@ export function WordPreview({ word }: { word: ClassifiedWord }) {
         <Divider />
 
         <Stack gap={4}>
-          <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={1}>
-            TOPIK 風
-          </Text>
+          <Group gap="xs">
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={1}>
+              TOPIK 風
+            </Text>
+            <SpeechButton text={word.example_topik} size="sm" />
+          </Group>
           <Text size="sm">{word.example_topik}</Text>
           <Text size="xs" c="dimmed">
             {word.example_topik_ja}
@@ -58,9 +68,12 @@ export function WordPreview({ word }: { word: ClassifiedWord }) {
         </Stack>
 
         <Stack gap={4}>
-          <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={1}>
-            日常会話
-          </Text>
+          <Group gap="xs">
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={1}>
+              日常会話
+            </Text>
+            <SpeechButton text={word.example_daily} size="sm" />
+          </Group>
           <Text size="sm">{word.example_daily}</Text>
           <Text size="xs" c="dimmed">
             {word.example_daily_ja}

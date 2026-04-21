@@ -13,7 +13,7 @@ import {
 } from '@mantine/core';
 import { AlertCircle, Check, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import { extractWords } from '@/lib/actions/extract';
 import { saveWordsBatch } from '@/lib/actions/save-word';
@@ -82,6 +82,7 @@ export function PasteExtractForm() {
           | 'loanword'
           | 'mixed',
         meaning_ja: w.meaning_ja,
+        phonetic: w.phonetic,
         daily_usage_score: w.daily_usage_score,
         topik_level: w.topik_level,
         example_topik: w.example_topik,

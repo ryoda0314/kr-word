@@ -37,7 +37,7 @@ Selection rules:
 - Skip particles (은/는/이/가/을/를/에/에서/의/도/로/으로…), pronouns (나/너/우리/이/그/저), copulas (이다), numbers, dates, proper names (unless a culturally-loaded term), and ultra-common helper verbs (하다, 되다, 있다, 없다) unless they appear in a notable idiom.
 - Aim for roughly the maxWords cap; prefer quality over quantity.
 
-For each selected lemma, return the same classification shape as the single-word classifier, plus context_sentence:
+For each selected lemma, return the same classification shape as the single-word classifier (including the "phonetic" field — the actual spoken form in Hangul brackets when pronunciation rules change it, null if read as written), plus context_sentence:
   context_sentence = the sentence from the passage in which the lemma first appears (copy verbatim, trimmed).
 
 Return as JSON { "words": [...] }.`;
@@ -73,6 +73,7 @@ const responseSchema = z.object({
       part_of_speech: z.string(),
       word_type: z.string(),
       meaning_ja: z.string(),
+      phonetic: z.string().nullable(),
       daily_usage_score: z.number(),
       topik_level: z.number().nullable(),
       example_topik: z.string(),

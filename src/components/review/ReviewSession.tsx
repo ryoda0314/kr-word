@@ -22,6 +22,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useCallback, useState, useTransition } from 'react';
 
+import { SpeechButton } from '@/components/common/SpeechButton';
 import { submitReview } from '@/lib/actions/review';
 import { STAGE_LABELS_JA, WORD_TYPE_LABELS_JA, type VocabStage, type WordType } from '@/types/db';
 
@@ -29,6 +30,7 @@ export type ReviewCard = {
   id: string;
   lemma: string;
   hanja: string | null;
+  phonetic: string | null;
   word_type: WordType;
   part_of_speech: string | null;
   meaning_ja: string;
@@ -194,6 +196,10 @@ function MemorizeCard({
           {card.hanja}
         </Text>
       ) : null}
+      <Group gap="xs">
+        <SpeechButton text={card.lemma} size="md" />
+        <SpeechButton text={card.lemma} slow size="md" label="ゆっくり" />
+      </Group>
 
       {!revealed ? (
         <Button
@@ -210,6 +216,11 @@ function MemorizeCard({
           <Text ta="center" size="xl" fw={500}>
             {card.meaning_ja}
           </Text>
+          {card.phonetic ? (
+            <Text ta="center" size="sm" c="grape" ff="monospace">
+              実際の発音：{card.phonetic}
+            </Text>
+          ) : null}
           <ExampleBlocks card={card} />
           {card.notes ? (
             <Text size="xs" c="dimmed" ta="center">
@@ -308,6 +319,12 @@ function RecognizeCard({
                   {card.hanja}
                 </Text>
               ) : null}
+              {card.phonetic ? (
+                <Text size="xs" c="grape" ff="monospace">
+                  {card.phonetic}
+                </Text>
+              ) : null}
+              <SpeechButton text={card.lemma} size="sm" />
             </Group>
           </Group>
           <Divider />
@@ -330,9 +347,12 @@ function ExampleBlocks({ card }: { card: ReviewCard }) {
     <Stack gap="sm">
       {card.example_topik ? (
         <Stack gap={2}>
-          <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={1}>
-            TOPIK 風
-          </Text>
+          <Group gap="xs">
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={1}>
+              TOPIK 風
+            </Text>
+            <SpeechButton text={card.example_topik} size="sm" />
+          </Group>
           <Text size="sm">{card.example_topik}</Text>
           {card.example_topik_ja ? (
             <Text size="xs" c="dimmed">
@@ -343,9 +363,12 @@ function ExampleBlocks({ card }: { card: ReviewCard }) {
       ) : null}
       {card.example_daily ? (
         <Stack gap={2}>
-          <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={1}>
-            日常会話
-          </Text>
+          <Group gap="xs">
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600} lts={1}>
+              日常会話
+            </Text>
+            <SpeechButton text={card.example_daily} size="sm" />
+          </Group>
           <Text size="sm">{card.example_daily}</Text>
           {card.example_daily_ja ? (
             <Text size="xs" c="dimmed">

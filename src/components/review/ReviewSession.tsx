@@ -197,11 +197,6 @@ function MemorizeCard({
       <Title order={1} ta="center" size={44} lh={1.2}>
         {card.lemma}
       </Title>
-      {card.hanja ? (
-        <Text c="dimmed" size="sm" ff="monospace">
-          {card.hanja}
-        </Text>
-      ) : null}
       <Group gap="xs">
         <SpeechButton text={card.lemma} size="md" />
         <SpeechButton text={card.lemma} slow size="md" label="ゆっくり" />
@@ -222,6 +217,11 @@ function MemorizeCard({
           <Text ta="center" size="xl" fw={500}>
             {card.meaning_ja}
           </Text>
+          {card.hanja ? (
+            <Text ta="center" c="dimmed" size="sm" ff="monospace">
+              {card.hanja}
+            </Text>
+          ) : null}
           {card.phonetic ? (
             <Text ta="center" size="sm" c="grape" ff="monospace">
               実際の発音：{card.phonetic}
